@@ -64,7 +64,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20151025.01"
+VERSION = "20151025.02"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'wikis'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -212,7 +212,8 @@ class WgetArgs(object):
         if item_type == 'mediawiki' or item_type == 'mediawikieu':
             # Code below is partially taken from https://github.com/WikiTeam/wikiteam/blob/master/dumpgenerator.py and may be edited
             if item_type == 'mediawiki':
-                lists = ['allcategories:ac:Category:', 'allimages:ai:', 'allpages:ap:', 'allusers:au:User:']
+                lists = ['allcategories:ac:Category:', 'allimages:ai:', 'allpages:ap:']
+                #lists = ['allcategories:ac:Category:', 'allimages:ai:', 'allpages:ap:', 'allusers:au:User:']
                 wget_args.append('http://%s'%(item_base))
                 wget_args.append('http://%s'%(re.search(r'^([^/]+)', item_base).group(1)))
             elif item_type == 'mediawikieu':
@@ -267,8 +268,9 @@ class WgetArgs(object):
                             titles.append(page['name'])
                             wget_args.append('http://%s%s%s'%(item_base, pageprefix, page['name']))
                         elif listname == 'exturlusage':
-                            titles.append(page['url'])
-                            wget_args.append(page['url'])
+                            if re.match(r'^https?://', page['url']):
+                                titles.append(page['url'])
+                                wget_args.append(page['url'])
                         else:
                             titles.append(page['title'])
                             wget_args.append('http://%s%s%s'%(item_base, pageprefix, page['title']))
@@ -314,7 +316,7 @@ pipeline = Pipeline(
     PrepareDirectories(warc_prefix="wikis"),
     WgetDownload(
         WgetArgs(),
-        max_tries=2,
+        max_tries=1,
         accept_on_exit_code=[0, 4, 8],
         env={
             "item_dir": ItemValue("item_dir"),
