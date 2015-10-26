@@ -64,7 +64,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20151025.02"
+VERSION = "20151026.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'wikis'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -245,9 +245,6 @@ class WgetArgs(object):
                         raise Exception('Received status code %d, aborting...'%(statuscode))
                     if html.text.startswith(u'\ufeff'):
                         html.encoding = 'utf-8-sig'
-                    for newurl in re.findall(r'"(https?:\\\\/\\\\/[^"]+)"', html.text):
-                        wget_args.append(newurl)
-                        print(newurl)
                     jsonfile = html.json()
                     apfrom = ''
                     if 'query-continue' in jsonfile and listname in jsonfile['query-continue']:
@@ -317,7 +314,7 @@ pipeline = Pipeline(
     WgetDownload(
         WgetArgs(),
         max_tries=1,
-        accept_on_exit_code=[0, 4, 8],
+        accept_on_exit_code=[0, 4, 6, 8],
         env={
             "item_dir": ItemValue("item_dir"),
             "item_type": ItemValue("item_type"),
