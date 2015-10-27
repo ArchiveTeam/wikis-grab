@@ -64,7 +64,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20151027.02"
+VERSION = "20151027.03"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'wikis'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -214,74 +214,73 @@ class WgetArgs(object):
             if item_type == 'mediawiki':
                 lists = ['allcategories:ac:Category:', 'allimages:ai:', 'allpages:ap:']
                 #lists = ['allcategories:ac:Category:', 'allimages:ai:', 'allpages:ap:', 'allusers:au:User:']
-                wget_args.append('http://%s'%(item_base))
-                wget_args.append('http://%s'%(re.search(r'^([^/]+)', item_base).group(1)))
             elif item_type == 'mediawikieu':
                 lists = ['exturlusage:eu:']
-                wget_args.append('http://%s'%(item_base))
-                wget_args.append('http://%s'%(re.search(r'^([^/]+)', item_base).group(1)))
-            for newlist in lists:
-                listname, listid, pageprefix = newlist.split(':', 2)
-                titles = []
-                if item_type == 'mediawiki':
-                    apfrom = '!'
-                elif item_type == 'mediawikieu':
-                    apfrom = '0'
-                if listname == 'allusers' and re.search(r'[^/]*wikia\.com', item_api):
-                    apfrom = ''
-                while apfrom:
-                    #print('%sfrom %s'%(listid, apfrom))
-                    retries = 0
-                    while retries < 5:
-                        try:
-                            if item_type == "mediawikieu":
-                                html = requests.get('http://%s?action=query&list=%s&%slimit=500&format=json&%soffset=%s'%(item_api, listname, listid, listid, apfrom))
+            wget_args.append('http://%s'%(item_base))
+            wget_args.append('http://%s'%(re.search(r'^([^/]+)', item_base).group(1)))
+            if re.search(r'https?://'+re.search(r'^([^/]+)', item_base).group(1), requests.get('http://%s'%(re.search(r'^([^/]+)', item_base).group(1))).url):
+                for newlist in lists:
+                    listname, listid, pageprefix = newlist.split(':', 2)
+                    titles = []
+                    if item_type == 'mediawiki':
+                        apfrom = '!'
+                    elif item_type == 'mediawikieu':
+                        apfrom = '0'
+                    if listname == 'allusers' and re.search(r'[^/]*wikia\.com', item_api):
+                        apfrom = ''
+                    while apfrom:
+                        #print('%sfrom %s'%(listid, apfrom))
+                        retries = 0
+                        while retries < 5:
+                            try:
+                                if item_type == "mediawikieu":
+                                    html = requests.get('http://%s?action=query&list=%s&%slimit=500&format=json&%soffset=%s'%(item_api, listname, listid, listid, apfrom))
+                                else:
+                                    html = requests.get('http://%s?action=query&list=%s&%slimit=500&format=json&%sfrom=%s'%(item_api, listname, listid, listid, apfrom))
+                                break
+                            except:
+                                print('Connection error: %s'%(str(err)))
+                                retries += 1
+                                time.sleep(2)
+                        if not 200 <= html.status_code < 300:
+                            raise Exception('Received status code %d, aborting...'%(statuscode))
+                        if html.text.startswith(u'\ufeff'):
+                            html.encoding = 'utf-8-sig'
+                        jsonfile = html.json()
+                        apfrom = ''
+                        if 'query-continue' in jsonfile and listname in jsonfile['query-continue']:
+                            if listid + 'continue' in jsonfile['query-continue'][listname]:
+                                apfrom = jsonfile['query-continue'][listname][listid + 'continue']
+                            elif listid + 'from' in jsonfile['query-continue'][listname]:
+                                apfrom = jsonfile['query-continue'][listname][listid + 'from']
+                            elif listid + 'offset' in jsonfile['query-continue'][listname]:
+                                apfrom = jsonfile['query-continue'][listname][listid + 'offset']
+                        allpages = jsonfile['query'][listname]
+                        if isinstance(allpages, dict):
+                            allpages = allpages.values()
+                        for page in allpages:
+                            if listname == 'allcategories':
+                                titles.append(page['*'])
+                                wget_args.append('http://%s%s%s'%(item_base, pageprefix, page['*']))
+                            elif listname == 'allusers':
+                                titles.append(page['name'])
+                                wget_args.append('http://%s%s%s'%(item_base, pageprefix, page['name']))
+                            elif listname == 'exturlusage':
+                                if re.match(r'^https?://', page['url']):
+                                    titles.append(page['url'])
+                                    wget_args.append(page['url'])
                             else:
-                                html = requests.get('http://%s?action=query&list=%s&%slimit=500&format=json&%sfrom=%s'%(item_api, listname, listid, listid, apfrom))
-                            break
-                        except:
-                            print('Connection error: %s'%(str(err)))
-                            retries += 1
-                            time.sleep(2)
-                    if not 200 <= html.status_code < 300:
-                        raise Exception('Received status code %d, aborting...'%(statuscode))
-                    if html.text.startswith(u'\ufeff'):
-                        html.encoding = 'utf-8-sig'
-                    jsonfile = html.json()
-                    apfrom = ''
-                    if 'query-continue' in jsonfile and listname in jsonfile['query-continue']:
-                        if listid + 'continue' in jsonfile['query-continue'][listname]:
-                            apfrom = jsonfile['query-continue'][listname][listid + 'continue']
-                        elif listid + 'from' in jsonfile['query-continue'][listname]:
-                            apfrom = jsonfile['query-continue'][listname][listid + 'from']
-                        elif listid + 'offset' in jsonfile['query-continue'][listname]:
-                            apfrom = jsonfile['query-continue'][listname][listid + 'offset']
-                    allpages = jsonfile['query'][listname]
-                    if isinstance(allpages, dict):
-                        allpages = allpages.values()
-                    for page in allpages:
-                        if listname == 'allcategories':
-                            titles.append(page['*'])
-                            wget_args.append('http://%s%s%s'%(item_base, pageprefix, page['*']))
-                        elif listname == 'allusers':
-                            titles.append(page['name'])
-                            wget_args.append('http://%s%s%s'%(item_base, pageprefix, page['name']))
-                        elif listname == 'exturlusage':
-                            if re.match(r'^https?://', page['url']):
+                                titles.append(page['title'])
+                                wget_args.append('http://%s%s%s'%(item_base, pageprefix, page['title']))
+                            if listname == 'allimages':
                                 titles.append(page['url'])
                                 wget_args.append(page['url'])
-                        else:
-                            titles.append(page['title'])
-                            wget_args.append('http://%s%s%s'%(item_base, pageprefix, page['title']))
-                        if listname == 'allimages':
-                            titles.append(page['url'])
-                            wget_args.append(page['url'])
-                    print('Found and queued %d URLs, continuing...'%(len(allpages)))
-                    #print('%sfrom %s'%(listid, apfrom))
-                    if len(titles) != len(set(titles)) and item_type != 'mediawikieu':
-                        print('Probably a loop, finishing.')
-                        titles = list(set(titles))
-                        apfrom = ''
+                        print('Found and queued %d URLs, continuing...'%(len(allpages)))
+                        #print('%sfrom %s'%(listid, apfrom))
+                        if len(titles) != len(set(titles)) and item_type != 'mediawikieu':
+                            print('Probably a loop, finishing.')
+                            titles = list(set(titles))
+                            apfrom = ''
         else:
             raise Exception('Unknown item')
         
