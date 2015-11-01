@@ -35,7 +35,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   end
   
   if status_code >= 500 or
-    (status_code >= 400 and status_code ~= 404 and status_code ~= 403) or
+    (status_code >= 400 and status_code ~= 404 and status_code ~= 403 and status_code ~= 410) or
      status_code == 0 then
     io.stdout:write("\nServer returned "..http_stat.statcode..". Sleeping.\n")
     io.stdout:flush()
@@ -58,6 +58,9 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   tries = 0
 
   local sleep_time = 0
+  if string.match(url["url"], "https?://[^/]*rutracker%.org[^/]*") then
+    sleep_time = 0.2
+  end
 
   if sleep_time > 0.001 then
     os.execute("sleep " .. sleep_time)
